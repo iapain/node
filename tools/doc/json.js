@@ -26,6 +26,15 @@ module.exports = doJSON;
 
 var marked = require('marked');
 
+function parseTitle(text) {
+  var m = text.match( /^\s*\[(.*?)\]\s*\((.*?)\)/ );
+  if (m) {
+    return {"title": m[1], "url":
+             {"html": m[2], "json": m[2].replace(/\.html/, ".json")}
+           }
+  }
+}
+
 function doJSON(input, filename, cb) {
   var root = {source: filename};
   var stack = [root];
@@ -37,6 +46,29 @@ function doJSON(input, filename, cb) {
     var type = tok.type;
     var text = tok.text;
 
+    if (type.match(/^list_/i) || type === 'text') {
+        if (type.match(/^list_item_(start|end)/i)) return;
+        if (type === 'list_start') {
+            depth++;
+            return;
+        }
+        if (type === 'list_end') {
+            depth--;
+            return;
+        }
+        if (type === 'text') {
+            var parsed = parseTitle(text);
+            if (parsed) {
+                tok = parsed;
+            }
+            else {
+                tok = {"title": text}
+            }
+            tok.level = depth;
+        }
+        
+    }
+    
     // <!-- type = module -->
     // This is for cases where the markdown semantic structure is lacking.
     if (type === 'paragraph' || type === 'html') {
@@ -482,6 +514,10 @@ function finishSection(section, parent) {
   parent[plur].push(section);
 }
 
+function buildToc(section) {
+    var list = section.list;
+    console.log(list);
+}
 
 // Not a general purpose deep copy.
 // But sufficient for these basic things.
