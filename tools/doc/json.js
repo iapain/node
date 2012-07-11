@@ -27,9 +27,10 @@ module.exports = doJSON;
 var marked = require('marked');
 
 function parseTitle(text) {
+  // matches [some link](url) md syntax
   var m = text.match( /^\s*\[(.*?)\]\s*\((.*?)\)/ );
   if (m) {
-    return {"title": m[1], "url":
+    return {"text": m[1], "url":
              {"html": m[2], "json": m[2].replace(/\.html/, ".json")}
            }
   }
@@ -40,33 +41,33 @@ function doJSON(input, filename, cb) {
   var stack = [root];
   var depth = 0;
   var current = root;
+  var toc = [];
   var state = null;
   var lexed = marked.lexer(input);
   lexed.forEach(function (tok) {
     var type = tok.type;
     var text = tok.text;
 
-    if (type.match(/^list_/i) || type === 'text') {
-        if (type.match(/^list_item_(start|end)/i)) return;
-        if (type === 'list_start') {
-            depth++;
-            return;
+    // this block should be executed for index page only
+    // allow list|text|space nodes
+    if (type.match(/^(list_|text|space)/i) && state === null) {
+      if (type.match(/^space/i)) return; //skip
+      if (type.match(/^list_item_(start|end)/i)) return; //skip
+      if (type === "list_start") {
+        depth++;
+        return; //skip
+      }
+      if (type === "list_end") {
+        depth--;
+        return; //skip
+      }
+      if (type == "text") {
+        var parsed = parseTitle(text);
+        if (parsed) {
+          tok.text = parsed.text;
+          tok.url = parsed.url;
         }
-        if (type === 'list_end') {
-            depth--;
-            return;
-        }
-        if (type === 'text') {
-            var parsed = parseTitle(text);
-            if (parsed) {
-                tok = parsed;
-            }
-            else {
-                tok = {"title": text}
-            }
-            tok.level = depth;
-        }
-        
+      }
     }
     
     // <!-- type = module -->
